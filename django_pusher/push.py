@@ -4,9 +4,9 @@ from django.core.exceptions import ImproperlyConfigured
 from django.contrib.sites.models import Site
 
 import ujson
-import pusher
+import django_pusher.pusher as pusher_lib
 
-pusher.json = ujson
+pusher_lib.json = ujson
 
 
 class NonUniqueNamespace(Exception):
@@ -27,7 +27,7 @@ class NamespaceClash(Exception):
     """
 
 
-class Pusher(pusher.Pusher):
+class Pusher(pusher_lib.Pusher):
 
     def __init__(self, app_id=None, key=None, secret=None, **kwargs):
         self._registry = {}
