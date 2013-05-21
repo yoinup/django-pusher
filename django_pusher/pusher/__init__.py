@@ -98,7 +98,8 @@ class Channel(object):
         self.path = '/apps/%s/channels/%s/events' % (self.pusher.app_id, urllib.quote(self.name))
 
     def trigger(self, event, data={}, socket_id=None):
-        json_data = json.dumps(data, cls=self.pusher.encoder)
+        #json_data = json.dumps(data, cls=self.pusher.encoder)
+        json_data = json.dumps(data)
         query_string = self.signed_query(event, json_data, socket_id)
         signed_path = "%s?%s" % (self.path, query_string)
         status = self.send_request(signed_path, json_data)
