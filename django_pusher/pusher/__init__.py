@@ -20,6 +20,8 @@ except ImportError:
 # 2.4 hashlib implementation: http://code.krypto.org/python/hashlib/
 import hashlib
 import os
+import urllib
+import re
 
 sha_constructor = hashlib.sha256
 json_dumps = json.dumps
@@ -46,6 +48,9 @@ key = None
 secret = None
 
 
+channel_name_re = re.compile('^[-a-zA-Z0-9_=@,.;]+$')
+app_id_re       = re.compile('^[0-9]+$')
+
 def url2options(url):
     assert url.startswith('http://'), "invalid URL"
     url = url[7:]
@@ -62,14 +67,16 @@ def pusher_from_url(url=None):
 
 
 class Pusher(object):
-    def __init__(
-            self, app_id=None, key=None, secret=None, host=None, port=None):
+    def __init__(self, app_id=None, key=None, secret=None, host=None, port=None, encoder=None):
         _globals = globals()
-        self.app_id = app_id or _globals['app_id']
+        self.app_id = str(app_id or _globals['app_id'])
+        if not app_id_re.match(self.app_id):
+            raise NameError("Invalid app id")
         self.key = key or _globals['key']
         self.secret = secret or _globals['secret']
         self.host = host or _globals['host']
         self.port = port or _globals['port']
+        self.encoder = encoder
         self._channels = {}
 
     def __getitem__(self, key):
@@ -85,11 +92,13 @@ class Pusher(object):
 class Channel(object):
     def __init__(self, name, pusher):
         self.pusher = pusher
-        self.name = name
-        self.path = '/apps/%s/channels/%s/events' % (self.pusher.app_id, self.name)
+        self.name = str(name)
+        if not channel_name_re.match(self.name):
+            raise NameError("Invalid channel id")
+        self.path = '/apps/%s/channels/%s/events' % (self.pusher.app_id, urllib.quote(self.name))
 
     def trigger(self, event, data={}, socket_id=None):
-        json_data = json_dumps(data)
+        json_data = json.dumps(data, cls=self.pusher.encoder)
         query_string = self.signed_query(event, json_data, socket_id)
         signed_path = "%s?%s" % (self.path, query_string)
         status = self.send_request(signed_path, json_data)
@@ -127,7 +136,7 @@ class Channel(object):
 
     def authenticate(self, socket_id, custom_data=None):
         if custom_data:
-            custom_data = json.dumps(custom_data)
+            custom_data = json.dumps(custom_data, cls=self.pusher.encoder)
 
         auth = self.authentication_string(socket_id, custom_data)
         r = {'auth': auth}
